@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.auth.deps import get_current_user
+from api.config import settings
 from api.jobs import store
 from api.jobs.paths import doc_path, skeleton_path
 from api.jobs.worker import enqueue_generate
@@ -92,7 +93,7 @@ async def confirm_job(job_id: str, payload: ConfirmJobRequest, user: dict = Depe
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     skeleton = RepoSkeleton.model_validate_json(skeleton_path(job_id).read_text(encoding="utf-8"))
-    estimate = estimate_job(skeleton, model)
+    estimate = estimate_job(skeleton, model, multi_agent=settings.multi_agent)
     cap = int(settings_row["max_tokens"])
     if estimate["estimated_input_tokens"] + estimate["estimated_output_tokens"] > cap:
         raise HTTPException(

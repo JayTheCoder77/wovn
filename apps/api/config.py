@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     github_callback_url: str = "http://127.0.0.1:8000/auth/github/callback"
     web_origin: str = ""
     testing: bool = False
+    multi_agent: bool = True
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -127,7 +127,7 @@ def test_estimator_matches_pack_tokens():
         + SYNTHESIS_OVERHEAD_TOKENS
         + n * SUMMARY_OUTPUT_TOKENS
     )
-    estimate = estimate_job(skeleton, DEFAULT_MODEL)
+    estimate = estimate_job(skeleton, DEFAULT_MODEL, multi_agent=False)
     assert estimate["pack_input_tokens"] == pack_input
     assert estimate["estimated_input_tokens"] == expected_input
     assert estimate["summarization_calls"] == n

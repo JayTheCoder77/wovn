@@ -10,12 +10,13 @@ from api.auth.github_api import GitHubAuthError, valid_access_token
 from api.auth.keys import decrypt_key
 from api.config import settings
 from api.jobs import store
-from api.jobs.paths import doc_path, job_dir, skeleton_path
+from api.jobs.paths import agents_dir, doc_path, job_dir, skeleton_path
 from doc_schema.models import ProjectType
 from estimator.estimate import estimate_job
 from estimator.pricing import DEFAULT_MODEL, get_model
 from generation.groq_client import GroqClient
 from generation.context.packs import build_context_packs
+from generation.orchestrator import run_multi_agent
 from generation.summarize import summarize_all
 from generation.synthesize import synthesize
 from ingest.clone import CloneError, clone_repo
@@ -90,7 +91,7 @@ def _analyze_job(job_id: str) -> None:
             get_model(model)
         except KeyError:
             model = DEFAULT_MODEL
-        estimate = estimate_job(skeleton, model)
+        estimate = estimate_job(skeleton, model, multi_agent=settings.multi_agent)
         store.update_job(
             job_id,
             status="awaiting_confirmation",
@@ -151,11 +152,21 @@ async def _generate_job(job_id: str) -> None:
         job_id,
         status="generating",
         error=None,
-        progress={"stage": "generating", "message": "Starting summarization"},
+        progress={"stage": "generating", "message": "Starting generation"},
     )
-    summaries = await summarize_all(client, packs.modules, on_progress=on_progress)
-    await on_progress("Synthesizing documentation")
-    doc = await synthesize(client, skeleton, project_type, summaries, packs=packs)
+    if settings.multi_agent:
+        doc = await run_multi_agent(
+            client,
+            skeleton,
+            packs,
+            project_type,
+            artifact_dir=agents_dir(job_id),
+            on_progress=on_progress,
+        )
+    else:
+        summaries = await summarize_all(client, packs.modules, on_progress=on_progress)
+        await on_progress("Synthesizing documentation")
+        doc = await synthesize(client, skeleton, project_type, summaries, packs=packs)
     mermaid = mermaid_from_import_graph(skeleton.import_graph)
     doc = ensure_architecture_diagram(doc, mermaid)
     doc = attach_search_index(doc)
