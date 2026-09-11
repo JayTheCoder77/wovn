@@ -21,9 +21,9 @@ export default function NavBar() {
 
   return (
     <header className="topbar">
-      <Link href="/" className="brand">
+      <a href="/" className="brand">
         Wovn
-      </Link>
+      </a>
       <nav>
         <Link href="/">Generate</Link>
         {user ? <Link href="/settings">Settings</Link> : null}

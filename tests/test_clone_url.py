@@ -1,3 +1,4 @@
+import base64
 import subprocess
 
 import pytest
@@ -43,7 +44,10 @@ def test_clone_with_token_uses_extra_header(tmp_path, monkeypatch):
     dest = tmp_path / "repo"
     parsed = clone_repo("https://github.com/pallets/flask", dest, access_token="gho_secret")
     assert parsed.https_url == "https://github.com/pallets/flask.git"
-    assert "http.extraHeader=Authorization: Bearer gho_secret" in captured["cmd"]
+    header = next(part for part in captured["cmd"] if str(part).startswith("http.extraHeader=Authorization:"))
+    assert header.startswith("http.extraHeader=Authorization: Basic ")
+    decoded = base64.b64decode(header.split(" ", 2)[2]).decode("ascii")
+    assert decoded == "x-access-token:gho_secret"
     clone_url = next(part for part in captured["cmd"] if str(part).startswith("https://"))
     assert clone_url == parsed.https_url
     assert "gho_secret" not in clone_url

@@ -2,33 +2,11 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import Markdown, { ItemTable, stripLeadingHeading } from "@/components/Markdown";
+import Mermaid from "@/components/Mermaid";
 import { api, GeneratedDoc } from "@/lib/api";
-
-function renderMarkdown(text: string) {
-  const blocks = text.trim().split(/\n{2,}/);
-  return blocks.map((block, index) => {
-    if (block.startsWith("```")) {
-      const inner = block.replace(/^```[a-zA-Z]*\n?/, "").replace(/```$/, "");
-      return (
-        <pre key={index}>
-          <code>{inner}</code>
-        </pre>
-      );
-    }
-    if (block.startsWith("# ")) return <h2 key={index}>{block.slice(2)}</h2>;
-    if (block.startsWith("## ")) return <h3 key={index}>{block.slice(3)}</h3>;
-    if (block.startsWith("- ")) {
-      return (
-        <ul key={index}>
-          {block.split("\n").map((line, i) => (
-            <li key={i}>{line.replace(/^- /, "")}</li>
-          ))}
-        </ul>
-      );
-    }
-    return <p key={index}>{block}</p>;
-  });
-}
+import { sectionAnchor, scrollToSection } from "@/lib/docsNav";
+import { stripMermaidFences } from "@/lib/mermaid";
 
 export default function DocsPage() {
   const params = useParams<{ id: string }>();
@@ -91,25 +69,32 @@ export default function DocsPage() {
         <p className="mono muted">{doc.project_type.replaceAll("_", " ")}</p>
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search docs" />
         {query && hits.length === 0 ? <p className="muted">No matches</p> : null}
-        {(query ? hits.map((h) => ({ id: h.id, title: h.title })) : nav).map((item) => (
-          <a
-            key={item.id}
-            href={`#${item.id.startsWith("section-") || ["overview", "getting-started", "structure"].includes(item.id) ? item.id.replace(/structure-.*/, "structure") : item.id}`}
-            className={active === item.id ? "active" : ""}
-            onClick={() => setActive(item.id)}
-          >
-            {item.title}
-          </a>
-        ))}
+        {(query ? hits.map((h) => ({ id: h.id, title: h.title })) : nav).map((item) => {
+          const anchor = sectionAnchor(item.id);
+          return (
+            <a
+              key={`${item.id}-${item.title}`}
+              href={`#${anchor}`}
+              className={active === anchor ? "active" : ""}
+              onClick={(event) => {
+                event.preventDefault();
+                setActive(anchor);
+                scrollToSection(item.id);
+              }}
+            >
+              {item.title}
+            </a>
+          );
+        })}
       </aside>
       <article className="article">
         <section id="overview">
           <h2>Overview</h2>
-          {renderMarkdown(doc.overview)}
+          <Markdown>{stripLeadingHeading(doc.overview, "Overview")}</Markdown>
         </section>
         <section id="getting-started">
           <h2>Getting started</h2>
-          {renderMarkdown(doc.getting_started)}
+          <Markdown>{stripLeadingHeading(doc.getting_started, "Getting started")}</Markdown>
         </section>
         <section id="structure">
           <h2>Project structure</h2>
@@ -124,17 +109,14 @@ export default function DocsPage() {
         {doc.sections.map((section, index) => (
           <section id={`section-${index}`} key={`${section.type}-${index}`}>
             <h2>{section.title}</h2>
-            {section.diagram ? <pre className="diagram">{section.diagram}</pre> : null}
-            {renderMarkdown(section.content)}
-            {section.items?.length ? (
-              <ul>
-                {section.items.map((item, i) => (
-                  <li key={i} className="mono">
-                    {JSON.stringify(item)}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+            {section.diagram ? <Mermaid chart={section.diagram} /> : null}
+            <Markdown>
+              {stripLeadingHeading(
+                section.diagram ? stripMermaidFences(section.content) : section.content,
+                section.title,
+              )}
+            </Markdown>
+            {section.items?.length ? <ItemTable items={section.items} /> : null}
           </section>
         ))}
       </article>

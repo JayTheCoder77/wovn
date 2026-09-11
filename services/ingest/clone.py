@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import os
 import re
 import shutil
@@ -70,7 +71,10 @@ def clone_repo(url: str, dest: Path, access_token: str | None = None) -> ParsedR
         "protocol.file.allow=never",
     ]
     if access_token:
-        cmd.extend(["-c", f"http.extraHeader=Authorization: Bearer {access_token}"])
+        # Git's HTTPS endpoint expects Basic x-access-token, not REST-style Bearer.
+        # A rejected Bearer header makes GitHub 404 even public repos.
+        credential = base64.b64encode(f"x-access-token:{access_token}".encode("ascii")).decode("ascii")
+        cmd.extend(["-c", f"http.extraHeader=Authorization: Basic {credential}"])
     cmd.extend(
         [
             "clone",

@@ -11,7 +11,7 @@ def build_search_index(doc: GeneratedDoc) -> list[dict[str, str]]:
     for item in doc.structure:
         entries.append(
             {
-                "id": f"structure-{item.path}",
+                "id": "structure",
                 "title": item.path,
                 "text": f"{item.path} {item.purpose}",
             }
@@ -20,7 +20,7 @@ def build_search_index(doc: GeneratedDoc) -> list[dict[str, str]]:
         blob = section.content + " " + " ".join(str(x) for x in section.items)
         entries.append(
             {
-                "id": f"section-{index}-{section.type}",
+                "id": f"section-{index}",
                 "title": section.title,
                 "text": blob,
             }

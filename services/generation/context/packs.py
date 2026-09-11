@@ -5,8 +5,7 @@ from typing import Any
 
 from skeleton_schema.models import FileSkeleton, PublicApiEntry, RepoSkeleton, Snippet, SnippetReason
 
-from estimator.token_counter import count_tokens
-from generation.modules import MAX_SYMBOLS_CONTEXT, group_files
+from renderer.diagram_gen import mermaid_from_import_graph
 
 GLOBAL_TOKEN_CAP = 2000
 MODULE_TOKEN_CAP = 2500
@@ -182,14 +181,4 @@ def _trim_global(pack: GlobalPack, cap: int) -> None:
 
 
 def _mermaid_edges(import_graph: dict[str, list[str]]) -> str:
-    lines = ["flowchart LR"]
-    count = 0
-    for source, targets in import_graph.items():
-        for target in targets:
-            lines.append(f'  "{source}" --> "{target}"')
-            count += 1
-            if count >= MAX_GRAPH_EDGES:
-                return "\n".join(lines)
-    if count == 0:
-        lines.append("  none")
-    return "\n".join(lines)
+    return mermaid_from_import_graph(import_graph, limit=MAX_GRAPH_EDGES) or "flowchart LR\n  none[no edges]"

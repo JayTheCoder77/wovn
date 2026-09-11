@@ -32,6 +32,6 @@ def ensure_architecture_diagram(doc: GeneratedDoc, mermaid: str) -> GeneratedDoc
     if not mermaid:
         return doc
     for section in doc.sections:
-        if section.type == "architecture" and not section.diagram:
+        if section.type == "architecture":
             section.diagram = mermaid
     return doc
