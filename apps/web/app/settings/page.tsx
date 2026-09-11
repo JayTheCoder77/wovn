@@ -13,12 +13,14 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([api.settings(), api.models()]).then(([s, m]) => {
-      setSettings(s);
-      setModels(m);
-      setModel(s.default_model);
-      setCap(s.max_tokens);
-    });
+    Promise.all([api.settings(), api.models()])
+      .then(([s, m]) => {
+        setSettings(s);
+        setModels(m);
+        setModel(s.default_model);
+        setCap(s.max_tokens);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Could not load settings"));
   }, []);
 
   async function onSubmit(event: FormEvent) {
@@ -42,7 +44,10 @@ export default function SettingsPage() {
   return (
     <main className="shell">
       <h1>Settings</h1>
-      <p className="lede">Your Groq key is encrypted at rest and used only for confirmed generation jobs.</p>
+      <p className="lede">
+        Your Groq key is encrypted at rest (key id fernet-v1) and used only for confirmed generation jobs. Rotating{" "}
+        <span className="mono">WOVN_SECRET_KEY</span> invalidates stored Groq and GitHub secrets.
+      </p>
       <form className="card" onSubmit={onSubmit}>
         <p className="muted">
           Key status: {settings?.has_groq_key ? "saved" : "not set"}

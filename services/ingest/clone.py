@@ -29,9 +29,7 @@ def parse_github_url(url: str) -> ParsedRepo:
     raw = url.strip()
     match = GITHUB_URL_RE.match(raw)
     if not match:
-        raise CloneError(
-            "Only public https://github.com/<owner>/<repo> URLs are supported in v1."
-        )
+        raise CloneError("Only https://github.com/<owner>/<repo> URLs are supported.")
     owner, name = match.group(1), match.group(2)
     if name == "." or owner == ".":
         raise CloneError("Invalid GitHub repository URL.")
@@ -53,7 +51,7 @@ def _dir_size_bytes(path: Path) -> int:
     return total
 
 
-def clone_repo(url: str, dest: Path) -> ParsedRepo:
+def clone_repo(url: str, dest: Path, access_token: str | None = None) -> ParsedRepo:
     parsed = parse_github_url(url)
     if dest.exists():
         shutil.rmtree(dest)
@@ -70,13 +68,19 @@ def clone_repo(url: str, dest: Path) -> ParsedRepo:
         "core.hooksPath=/dev/null",
         "-c",
         "protocol.file.allow=never",
-        "clone",
-        "--depth=1",
-        "--single-branch",
-        "--no-tags",
-        parsed.https_url,
-        str(dest),
     ]
+    if access_token:
+        cmd.extend(["-c", f"http.extraHeader=Authorization: Bearer {access_token}"])
+    cmd.extend(
+        [
+            "clone",
+            "--depth=1",
+            "--single-branch",
+            "--no-tags",
+            parsed.https_url,
+            str(dest),
+        ]
+    )
     try:
         subprocess.run(
             cmd,
@@ -93,7 +97,9 @@ def clone_repo(url: str, dest: Path) -> ParsedRepo:
         shutil.rmtree(dest, ignore_errors=True)
         stderr = (exc.stderr or "").strip()
         if "Repository not found" in stderr or "Authentication failed" in stderr:
-            raise CloneError("Repository not found or is private. v1 supports public repos only.") from exc
+            raise CloneError(
+                "Repository not found or you do not have access. Reconnect GitHub if this is a private repo."
+            ) from exc
         raise CloneError("Failed to clone repository.") from exc
 
     size = _dir_size_bytes(dest)

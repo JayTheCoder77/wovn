@@ -1,19 +1,30 @@
 # Wovn
 
-Generate a documentation website from a public GitHub repository.
+Generate a documentation website from a GitHub repository you can access.
 
-Wovn shallow-clones the repo, statically analyzes it with tree-sitter (Python, TypeScript/TSX, JavaScript/JSX, Go, Rust), estimates Groq token cost, then — after you confirm — uses **your Groq API key** to write structured docs.
+Wovn signs you in with GitHub, shallow-clones the repo (public or private via your OAuth token), statically analyzes it with tree-sitter (Python, TypeScript/TSX, JavaScript/JSX, Go, Rust), estimates Groq token cost, then — after you confirm — uses **your Groq API key** to write structured docs.
 
-## MVP decisions (locked for this build)
+## v2 Phase A
+
+Signed-in users, per-user settings/repos/jobs, and private clone. The generation pipeline is still the MVP summarize → synthesize path.
 
 | Question | Decision |
 |---|---|
-| Summarization granularity | Group by top-level folder, max 12 files per LLM call |
-| Model override persistence | Resets to the saved default on each new job |
-| Docs URL scheme | Path-based: `/docs/<job-id>` |
-| Project-type labels | Single-label (`library` / `web_app` / `cli` / `service` / `general`) |
-| Default token cap | 200,000 tokens per run, adjustable in Settings |
+| Auth | GitHub OAuth; HTTP-only `wovn_session` cookie on the API |
+| Database | SQLAlchemy 2 + Alembic; SQLite locally (`WOVN_DATABASE_URL`) |
+| Secrets | Fernet (`fernet-v1`); rotating `WOVN_SECRET_KEY` invalidates stored Groq and GitHub tokens |
+| MVP SQLite | Existing anonymous `jobs` / `settings` rows are **not** migrated. Delete or ignore old `data/wovn.db` |
+| Docs URL | `/docs/<job-id>` for the owning user only |
 | Isolation | Shallow clone with git hooks disabled; cloned code is never executed |
+
+## GitHub OAuth app
+
+Create an OAuth App on GitHub with:
+
+- Homepage URL: `http://localhost:3000`
+- Authorization callback URL: `http://127.0.0.1:8000/auth/github/callback`
+
+Copy the client id and secret into `.env` as `WOVN_GITHUB_CLIENT_ID` and `WOVN_GITHUB_CLIENT_SECRET`. Scopes requested: `read:user` and `repo`.
 
 ## Run locally
 
@@ -25,6 +36,7 @@ uv venv --python 3.12
 source .venv/bin/activate
 uv pip install -e ".[dev]"
 cp .env.example .env
+# fill GitHub OAuth client id/secret
 uvicorn api.main:app --reload --port 8000
 
 # Web
@@ -33,7 +45,13 @@ pnpm install
 pnpm dev
 ```
 
-Open http://localhost:3000. Add a Groq key under Settings, paste a public GitHub URL, review the estimate, then confirm generation.
+Open http://localhost:3000, sign in with GitHub, add a Groq key under Settings, register a repo, review the estimate, then confirm generation.
+
+Schema migrations run on API startup (`alembic upgrade head`). To run them yourself:
+
+```bash
+alembic upgrade head
+```
 
 ## Tests
 

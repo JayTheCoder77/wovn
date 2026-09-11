@@ -7,6 +7,8 @@ from cryptography.fernet import Fernet, InvalidToken
 
 from api.config import settings
 
+FERNET_KEY_ID = "fernet-v1"
+
 
 def _fernet() -> Fernet:
     digest = hashlib.sha256(settings.secret_key.encode("utf-8")).digest()

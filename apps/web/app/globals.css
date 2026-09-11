@@ -49,6 +49,13 @@ a {
   display: flex;
   gap: 18px;
   color: var(--muted);
+  align-items: center;
+}
+
+.topbar nav button,
+.topbar nav .btn {
+  padding: 8px 14px;
+  font-size: 14px;
 }
 
 .shell {

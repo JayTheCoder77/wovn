@@ -1,5 +1,8 @@
-from ingest.clone import CloneError, parse_github_url
+import subprocess
+
 import pytest
+
+from ingest.clone import CloneError, clone_repo, parse_github_url
 
 
 def test_parse_github_https():
@@ -22,3 +25,42 @@ def test_reject_non_github():
 def test_reject_nested_path():
     with pytest.raises(CloneError):
         parse_github_url("https://github.com/pallets/flask/tree/main")
+
+
+def test_clone_with_token_uses_extra_header(tmp_path, monkeypatch):
+    captured: dict = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+
+        class Result:
+            returncode = 0
+
+        return Result()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("ingest.clone._dir_size_bytes", lambda path: 1)
+    dest = tmp_path / "repo"
+    parsed = clone_repo("https://github.com/pallets/flask", dest, access_token="gho_secret")
+    assert parsed.https_url == "https://github.com/pallets/flask.git"
+    assert "http.extraHeader=Authorization: Bearer gho_secret" in captured["cmd"]
+    clone_url = next(part for part in captured["cmd"] if str(part).startswith("https://"))
+    assert clone_url == parsed.https_url
+    assert "gho_secret" not in clone_url
+
+
+def test_public_clone_has_no_authorization_header(tmp_path, monkeypatch):
+    captured: dict = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+
+        class Result:
+            returncode = 0
+
+        return Result()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("ingest.clone._dir_size_bytes", lambda path: 1)
+    clone_repo("https://github.com/pallets/flask", tmp_path / "repo")
+    assert not any("Authorization" in str(part) for part in captured["cmd"])

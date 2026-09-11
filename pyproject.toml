@@ -23,6 +23,10 @@ dependencies = [
   "tiktoken>=0.8",
   "cryptography>=43",
   "python-dotenv>=1.0",
+  "sqlalchemy>=2.0",
+  "alembic>=1.14",
+  "authlib>=1.4",
+  "itsdangerous>=2.2",
 ]
 
 [project.optional-dependencies]
