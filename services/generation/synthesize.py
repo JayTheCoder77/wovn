@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from doc_schema.agents import ArchitectureDraft, CriticReport, OperationsDraft, SurfaceDraft
 from doc_schema.models import DocSection, GeneratedDoc, ProjectType, StructureEntry
 from skeleton_schema.models import RepoSkeleton
 
@@ -10,7 +11,7 @@ from generation.groq_client import GroqClient
 from generation.jsonutil import extract_json
 from generation.templates import section_plan
 
-SYSTEM = """You write structured documentation from a global ContextPack and module summaries.
+SYSTEM = """You merge structured agent drafts and module summaries into documentation. Merge only; no new facts.
 Return a JSON object with:
 {
   "title": string,
@@ -22,10 +23,11 @@ Return a JSON object with:
   ]
 }
 Rules:
-- Only use information present in the global pack and summaries.
+- Only use information present in the global pack, summaries, and drafts.
 - Overview must mention detected languages/stack.
 - For architecture sections, diagram should be a mermaid flowchart if relationships are known, else null.
-- getting_started should derive install commands from manifests when present.
+- getting_started should derive install commands from manifests or the operations draft when present.
+- If critic notes are provided, fix those issues using existing drafts only.
 """
 
 
@@ -86,9 +88,12 @@ async def synthesize(
     project_type: ProjectType,
     summaries: list[dict[str, Any]],
     packs: ContextPacks | None = None,
+    drafts: dict[str, ArchitectureDraft | SurfaceDraft | OperationsDraft | None] | None = None,
+    critic: CriticReport | None = None,
 ) -> GeneratedDoc:
     plan = section_plan(project_type)
     global_pack = render_global_pack(packs.global_pack) if packs else ""
+    draft_payload = drafts or {}
     user = {
         "repo": skeleton.root_name,
         "repo_url": skeleton.repo_url,
@@ -99,6 +104,10 @@ async def synthesize(
         "global_pack": global_pack,
         "summaries": summaries,
         "signals": skeleton.classifier_signals,
+        "architecture": _dump(draft_payload.get("architecture")),
+        "surface": _dump(draft_payload.get("surface")),
+        "operations": _dump(draft_payload.get("operations")),
+        "critic": critic.model_dump() if critic else None,
     }
     import json
 
@@ -136,3 +145,7 @@ async def synthesize(
         )
     except Exception:
         return _fallback(skeleton, project_type, summaries)
+
+
+def _dump(model: ArchitectureDraft | SurfaceDraft | OperationsDraft | None) -> dict | None:
+    return None if model is None else model.model_dump()

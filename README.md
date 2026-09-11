@@ -4,9 +4,9 @@ Generate a documentation website from a GitHub repository you can access.
 
 Wovn signs you in with GitHub, shallow-clones the repo (public or private via your OAuth token), statically analyzes it with tree-sitter (Python, TypeScript/TSX, JavaScript/JSX, Go, Rust), estimates Groq token cost, then — after you confirm — uses **your Groq API key** to write structured docs.
 
-## v2 Phase A
+## v2
 
-Signed-in users, per-user settings/repos/jobs, and private clone. The generation pipeline is still the MVP summarize → synthesize path.
+Signed-in users, per-user settings/repos/jobs, private clone, ContextPacks, and a **multi-agent** generation path (coordinator + specialists + synthesizer). Set `WOVN_MULTI_AGENT=false` to keep the legacy summarize → synthesize pipeline.
 
 | Question | Decision |
 |---|---|

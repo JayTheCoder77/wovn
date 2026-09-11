@@ -25,3 +25,9 @@ def skeleton_path(job_id: str) -> Path:
 
 def doc_path(job_id: str) -> Path:
     return job_dir(job_id) / "doc.json"
+
+
+def agents_dir(job_id: str) -> Path:
+    path = job_dir(job_id) / "agents"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
