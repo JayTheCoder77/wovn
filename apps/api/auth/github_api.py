@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import httpx
+import httpx2 as httpx
 
 from api.auth.keys import decrypt_key
 from api.config import settings
