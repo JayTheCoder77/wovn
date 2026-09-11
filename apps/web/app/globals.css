@@ -1,0 +1,236 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,600&family=Outfit:wght@400;500;600&display=swap");
+
+:root {
+  --bg: #10140f;
+  --bg-2: #171d16;
+  --ink: #e8eedd;
+  --muted: #9aa58c;
+  --line: #2a3326;
+  --accent: #d6ff4b;
+  --accent-ink: #12160f;
+  --warn: #ffb45e;
+  --danger: #ff7a6e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(1200px 500px at 10% -10%, #24301d 0%, var(--bg) 55%);
+  color: var(--ink);
+  font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
+  min-height: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  font-family: Newsreader, Georgia, serif;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.topbar nav {
+  display: flex;
+  gap: 18px;
+  color: var(--muted);
+}
+
+.shell {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: Newsreader, Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+h1 {
+  font-size: 56px;
+  line-height: 0.95;
+  margin: 0 0 16px;
+}
+
+.lede {
+  font-size: 18px;
+  color: var(--muted);
+  max-width: 640px;
+  line-height: 1.5;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  margin-top: 28px;
+  flex-wrap: wrap;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  background: var(--bg-2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+input {
+  min-width: 420px;
+  flex: 1;
+}
+
+button,
+.btn {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn.secondary,
+button.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.card {
+  background: rgba(23, 29, 22, 0.86);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.error {
+  color: var(--danger);
+}
+
+.job-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.job-list a {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.docs {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: calc(100vh - 64px);
+}
+
+.sidebar {
+  border-right: 1px solid var(--line);
+  padding: 20px;
+  background: #12180f;
+}
+
+.sidebar input {
+  min-width: 0;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.sidebar a {
+  display: block;
+  padding: 8px 0;
+  color: var(--muted);
+}
+
+.sidebar a.active,
+.sidebar a:hover {
+  color: var(--accent);
+}
+
+.article {
+  padding: 32px 40px 80px;
+  max-width: 820px;
+}
+
+.article h2 {
+  font-size: 32px;
+  margin-top: 36px;
+}
+
+.article p,
+.article li {
+  line-height: 1.65;
+  color: #d5ddc8;
+}
+
+.article pre,
+.diagram {
+  background: #0c100b;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  overflow: auto;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.article code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.92em;
+}
+
+@media (max-width: 800px) {
+  h1 {
+    font-size: 40px;
+  }
+  input {
+    min-width: 0;
+    width: 100%;
+  }
+  .docs {
+    grid-template-columns: 1fr;
+  }
+}
