@@ -1,0 +1,16 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      WOVN_SECRET_KEY: change-me
+      WOVN_DATA_DIR: /data
+      WOVN_CORS_ORIGINS: http://localhost:3000
+    volumes:
+      - wovn-data:/data
+
+volumes:
+  wovn-data:
