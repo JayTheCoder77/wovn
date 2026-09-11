@@ -12,6 +12,11 @@ class ConfirmJobRequest(BaseModel):
     provider: str | None = None
 
 
+class ModelInfoRequest(BaseModel):
+    provider: str
+    model: str = Field(..., min_length=1, max_length=200)
+
+
 class SettingsUpdate(BaseModel):
     groq_api_key: str | None = None
     openrouter_api_key: str | None = None

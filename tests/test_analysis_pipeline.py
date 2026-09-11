@@ -5,7 +5,7 @@ from analysis.skeleton_builder import build_skeleton
 from doc_schema.models import ProjectType
 from estimator.estimate import estimate_job
 from estimator.pricing import DEFAULT_MODEL, estimate_cost_usd
-from generation.modules import group_files
+from generation.context.packs import group_files
 
 
 def write_sample(root: Path) -> None:

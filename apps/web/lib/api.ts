@@ -146,6 +146,8 @@ export const api = {
   saveSettings: (payload: Partial<{ groq_api_key: string; openrouter_api_key: string; llm_provider: LLMProvider; default_model: string; max_tokens: number }>) =>
     request<Settings>("/settings", { method: "PUT", body: JSON.stringify(payload) }),
   models: (provider: LLMProvider) => request<LLMModel[]>(`/models?provider=${provider}`),
+  modelInfo: (provider: LLMProvider, model: string) =>
+    request<LLMModel>("/models/info", { method: "POST", body: JSON.stringify({ provider, model }) }),
   repos: () => request<Repo[]>("/repos"),
   addRepo: (url: string) => request<Repo>("/repos", { method: "POST", body: JSON.stringify({ url }) }),
   githubRepos: () => request<GithubRepoOption[]>("/github/repos"),

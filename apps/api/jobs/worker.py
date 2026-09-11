@@ -96,10 +96,7 @@ def _analyze_job(job_id: str) -> None:
             provider = LLMProvider.GROQ
         default_field = "default_model" if provider is LLMProvider.GROQ else "openrouter_default_model"
         model = settings_row.get(default_field) or DEFAULT_MODELS[provider]
-        try:
-            get_model(model, provider)
-        except KeyError:
-            model = DEFAULT_MODELS[provider]
+        get_model(model, provider)
         estimate = estimate_job(skeleton, model, provider, multi_agent=settings.multi_agent)
         store.update_job(
             job_id,

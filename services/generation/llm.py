@@ -60,6 +60,9 @@ class LLMClient:
                 }
                 if json_mode:
                     kwargs["response_format"] = {"type": "json_object"}
+                    if self.provider is LLMProvider.OPENROUTER:
+                        kwargs["provider"] = {"require_parameters": True}
+                        kwargs["reasoning"] = {"effort": "none"}
                 if self.provider is LLMProvider.GROQ:
                     response = await self._client.chat.completions.create(**kwargs)
                 else:

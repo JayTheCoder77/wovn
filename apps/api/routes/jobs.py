@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.auth.deps import get_current_user
@@ -10,7 +12,7 @@ from api.jobs.worker import enqueue_generate
 from api.routes.repos import start_job_for_repo
 from api.routes.schemas import ConfirmJobRequest, SubmitJobRequest
 from estimator.estimate import estimate_job
-from estimator.pricing import get_model
+from estimator.pricing import OpenRouterLookupError, OpenRouterModelError, get_model
 from generation.llm import LLMProvider
 from ingest.clone import CloneError, parse_github_url
 from doc_schema.models import GeneratedDoc
@@ -102,12 +104,14 @@ async def confirm_job(job_id: str, payload: ConfirmJobRequest, user: dict = Depe
     default_field = "default_model" if provider is LLMProvider.GROQ else "openrouter_default_model"
     model = payload.model or (job.get("model") if job.get("llm_provider") == provider.value else None) or settings_row[default_field]
     try:
-        get_model(model, provider)
-    except KeyError as exc:
+        model = str((await asyncio.to_thread(get_model, model, provider))["id"])
+    except (KeyError, OpenRouterModelError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except OpenRouterLookupError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     skeleton = RepoSkeleton.model_validate_json(skeleton_path(job_id).read_text(encoding="utf-8"))
-    estimate = estimate_job(skeleton, model, provider, multi_agent=settings.multi_agent)
+    estimate = await asyncio.to_thread(estimate_job, skeleton, model, provider, multi_agent=settings.multi_agent)
     cap = int(settings_row["max_tokens"])
     if estimate["estimated_input_tokens"] + estimate["estimated_output_tokens"] > cap:
         raise HTTPException(

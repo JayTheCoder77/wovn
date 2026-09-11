@@ -57,7 +57,7 @@ class FileGroup:
 
 
 def group_files(files: list[FileSkeleton]) -> list[FileGroup]:
-    """Group source files by their containing folder for module-level prompts."""
+    """Group source files by containing folder for module-level prompts."""
     grouped: dict[str, list[FileSkeleton]] = {}
     for file in files:
         parent = file.path.rpartition("/")[0]
