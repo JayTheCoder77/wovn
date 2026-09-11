@@ -3,15 +3,17 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { api, GroqModel, Job, Settings } from "@/lib/api";
+import { api, LLMModel, Job, Settings } from "@/lib/api";
 
 export default function JobPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [job, setJob] = useState<Job | null>(null);
-  const [models, setModels] = useState<GroqModel[]>([]);
+  const [models, setModels] = useState<LLMModel[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [model, setModel] = useState("");
+  const [modelInfo, setModelInfo] = useState<LLMModel | null>(null);
+  const [validatingModel, setValidatingModel] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
 
@@ -27,10 +29,10 @@ export default function JobPage() {
     }
     tick();
     const timer = setInterval(tick, 800);
-    api.models().then((rows) => {
-      setModels(rows);
-    });
-    api.settings().then(setSettings);
+    api.settings().then((current) => {
+      setSettings(current);
+      return api.models(current.llm_provider);
+    }).then(setModels);
     return () => {
       alive = false;
       clearInterval(timer);
@@ -41,11 +43,43 @@ export default function JobPage() {
     if (job?.model && !model) setModel(job.model);
   }, [job, model]);
 
+  useEffect(() => {
+    if (settings && job?.llm_provider && job.llm_provider !== settings.llm_provider && model === job.model) {
+      setModel(settings.default_model);
+    }
+  }, [job, model, settings]);
+
+  useEffect(() => {
+    if (settings?.llm_provider !== "openrouter" || !model.trim()) {
+      setModelInfo(null);
+      setValidatingModel(false);
+      return;
+    }
+    setValidatingModel(true);
+    const timer = setTimeout(() => {
+      api.modelInfo("openrouter", model.trim())
+        .then((info) => {
+          setModelInfo(info);
+          setError(null);
+        })
+        .catch((err) => {
+          setModelInfo(null);
+          setError(err instanceof Error ? err.message : "Could not validate model");
+        })
+        .finally(() => setValidatingModel(false));
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [model, settings?.llm_provider]);
+
   async function confirm() {
     setError(null);
     setConfirming(true);
     try {
-      const next = await api.confirm(id, model);
+      if (!settings) return;
+      if (settings.llm_provider === "openrouter" && !modelInfo) {
+        throw new Error("Enter a valid OpenRouter model before generating.");
+      }
+      const next = await api.confirm(id, model.trim(), settings.llm_provider);
       setJob(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Confirm failed");
@@ -85,25 +119,52 @@ export default function JobPage() {
             {(job.project_type || "general").replaceAll("_", " ")}
           </p>
           {waiting ? (
-            <div className="row">
-              <select value={model} onChange={(e) => setModel(e.target.value)}>
-                {models.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-              <button type="button" onClick={confirm} disabled={confirming || !settings?.has_groq_key}>
-                {confirming ? "Starting…" : "Generate docs"}
-              </button>
-              <Link className="btn secondary" href="/settings">
-                {settings?.has_groq_key ? "Settings" : "Add Groq key"}
-              </Link>
-            </div>
+            <>
+              <div className="row">
+                <select
+                  value={models.some((item) => item.id === model) ? model : ""}
+                  onChange={(e) => e.target.value && setModel(e.target.value)}
+                >
+                  {settings?.llm_provider === "openrouter" ? <option value="">Custom model ID below</option> : null}
+                  {models.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" onClick={confirm} disabled={confirming || validatingModel || (settings?.llm_provider === "openrouter" && !modelInfo) || !(settings?.llm_provider === "groq" ? settings.has_groq_key : settings?.has_openrouter_key)}>
+                  {confirming ? "Starting…" : "Generate docs"}
+                </button>
+                <Link className="btn secondary" href="/settings">
+                  {(settings?.llm_provider === "groq" ? settings.has_groq_key : settings?.has_openrouter_key) ? "Settings" : `Add ${settings?.llm_provider === "openrouter" ? "OpenRouter" : "Groq"} key`}
+                </Link>
+              </div>
+            {settings?.llm_provider === "openrouter" ? (
+              <p>
+                <label>
+                  Custom OpenRouter model ID
+                  <br />
+                  <input
+                    type="text"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    placeholder="Paste a model ID, e.g. anthropic/claude-sonnet-4"
+                    style={{ width: "100%", marginTop: 8 }}
+                  />
+                </label>
+                {validatingModel ? <span className="muted"> Validating model…</span> : null}
+                {modelInfo ? (
+                  <span className="accent">
+                    ✓ ${modelInfo.input_per_million}/M input · ${modelInfo.output_per_million}/M output
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
+            </>
           ) : null}
         </div>
       ) : (
-        <div className="card muted">Free static pass in progress — no Groq tokens used yet.</div>
+        <div className="card muted">Free static pass in progress — no provider tokens used yet.</div>
       )}
 
       {job.status === "completed" ? (

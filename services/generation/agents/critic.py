@@ -6,7 +6,7 @@ from doc_schema.agents import CriticReport
 from doc_schema.models import GeneratedDoc
 from skeleton_schema.models import RepoSkeleton
 
-from generation.groq_client import GroqClient
+from generation.llm import LLMClient
 from generation.jsonutil import extract_json
 
 SYSTEM = """You are a critic. List unsupported claims and missing sections versus skeleton facts.
@@ -22,7 +22,7 @@ Do not invent files that are not in the skeleton.
 
 
 async def run_critic(
-    client: GroqClient,
+    client: LLMClient,
     skeleton: RepoSkeleton,
     doc: GeneratedDoc,
 ) -> CriticReport:

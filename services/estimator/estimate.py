@@ -5,6 +5,7 @@ from typing import Any
 from skeleton_schema.models import RepoSkeleton
 
 from estimator.pricing import estimate_cost_usd
+from generation.llm import LLMProvider
 from estimator.token_counter import count_tokens
 from generation.context.packs import build_context_packs, render_global_pack, render_module_pack
 
@@ -17,7 +18,7 @@ SPECIALIST_OUTPUT_TOKENS = 800
 CRITIC_OUTPUT_TOKENS = 400
 
 
-def estimate_job(skeleton: RepoSkeleton, model_id: str, *, multi_agent: bool = True) -> dict[str, Any]:
+def estimate_job(skeleton: RepoSkeleton, model_id: str, provider: LLMProvider = LLMProvider.GROQ, *, multi_agent: bool = True) -> dict[str, Any]:
     packs = build_context_packs(skeleton)
     pack_input_tokens = count_tokens(render_global_pack(packs.global_pack))
     summarization_input = 0
@@ -83,8 +84,9 @@ def estimate_job(skeleton: RepoSkeleton, model_id: str, *, multi_agent: bool = T
             },
         }
 
-    cost = estimate_cost_usd(model_id, input_tokens, output_tokens)
+    cost = estimate_cost_usd(model_id, input_tokens, output_tokens, provider)
     result = {
+        "provider": provider.value,
         "model": model_id,
         "file_count": skeleton.file_count,
         "module_count": len(packs.modules),

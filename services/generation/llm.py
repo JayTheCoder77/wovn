@@ -1,22 +1,30 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import random
-from collections.abc import Awaitable, Callable
+from enum import Enum
 from typing import Any
 
-from groq import APIStatusError, AsyncGroq
+from groq import AsyncGroq
+from openrouter import OpenRouter
 
-ProgressCb = Callable[[str], Awaitable[None]] | Callable[[str], None] | None
+
+class LLMProvider(str, Enum):
+    GROQ = "groq"
+    OPENROUTER = "openrouter"
 
 
-class GroqClient:
-    def __init__(self, api_key: str, model: str, max_tokens_remaining: int):
+class LLMClient:
+    """Provider-neutral chat client with a per-run token cap."""
+
+    def __init__(self, provider: LLMProvider, api_key: str, model: str, max_tokens_remaining: int):
+        self.provider = provider
         self.model = model
         self.max_tokens_remaining = max_tokens_remaining
         self.tokens_used = 0
-        self._client = AsyncGroq(api_key=api_key)
+        self._client: Any = (
+            AsyncGroq(api_key=api_key) if provider is LLMProvider.GROQ else OpenRouter(api_key=api_key)
+        )
 
     def _charge(self, usage: Any) -> None:
         if usage is None:
@@ -46,24 +54,27 @@ class GroqClient:
             try:
                 kwargs: dict[str, Any] = {
                     "model": self.model,
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
+                    "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
                     "temperature": 0.2,
                     "max_tokens": min(max_completion_tokens, max(256, self.max_tokens_remaining)),
                 }
                 if json_mode:
                     kwargs["response_format"] = {"type": "json_object"}
-                response = await self._client.chat.completions.create(**kwargs)
-                self._charge(response.usage)
-                content = response.choices[0].message.content or ""
-                return content
-            except APIStatusError as exc:
+                    if self.provider is LLMProvider.OPENROUTER:
+                        kwargs["provider"] = {"require_parameters": True}
+                        kwargs["reasoning"] = {"effort": "none"}
+                if self.provider is LLMProvider.GROQ:
+                    response = await self._client.chat.completions.create(**kwargs)
+                else:
+                    response = await self._client.chat.send_async(**kwargs)
+                self._charge(getattr(response, "usage", None))
+                return response.choices[0].message.content or ""
+            except Exception as exc:
                 last_error = exc
-                if exc.status_code in {429, 500, 502, 503} and attempt < 4:
+                status_code = getattr(exc, "status_code", None) or getattr(exc, "status", None)
+                if status_code in {429, 500, 502, 503} and attempt < 4:
                     await asyncio.sleep(delay + random.random())
                     delay = min(delay * 2, 16)
                     continue
                 raise
-        raise last_error or RuntimeError("Groq request failed")
+        raise last_error or RuntimeError(f"{self.provider.value} request failed")

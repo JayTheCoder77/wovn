@@ -7,7 +7,7 @@ from doc_schema.models import DocSection, GeneratedDoc, ProjectType, StructureEn
 from skeleton_schema.models import RepoSkeleton
 
 from generation.context.packs import ContextPacks, render_global_pack
-from generation.groq_client import GroqClient
+from generation.llm import LLMClient
 from generation.jsonutil import extract_json
 from generation.templates import section_plan
 
@@ -83,7 +83,7 @@ def _getting_started_from_manifests(skeleton: RepoSkeleton) -> str:
 
 
 async def synthesize(
-    client: GroqClient,
+    client: LLMClient,
     skeleton: RepoSkeleton,
     project_type: ProjectType,
     summaries: list[dict[str, Any]],

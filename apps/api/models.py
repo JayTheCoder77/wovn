@@ -30,8 +30,11 @@ class UserSettings(Base):
 
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), primary_key=True)
     groq_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    openrouter_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     key_id: Mapped[str] = mapped_column(String(32), nullable=False, default="fernet-v1")
+    llm_provider: Mapped[str] = mapped_column(String(32), nullable=False, default="groq")
     default_model: Mapped[str] = mapped_column(String(200), nullable=False)
+    openrouter_default_model: Mapped[str] = mapped_column(String(200), nullable=False)
     max_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -77,6 +80,7 @@ class DocJob(Base):
     status: Mapped[str] = mapped_column(String(64), nullable=False)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     model: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    llm_provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
     project_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     estimate_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     progress_json: Mapped[str | None] = mapped_column(Text, nullable=True)

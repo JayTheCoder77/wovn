@@ -7,7 +7,7 @@ from doc_schema.models import ProjectType
 from skeleton_schema.models import RepoSkeleton
 
 from generation.context.packs import ContextPacks, render_global_pack
-from generation.groq_client import GroqClient
+from generation.llm import LLMClient
 from generation.jsonutil import extract_json
 from generation.templates import section_plan
 
@@ -49,7 +49,7 @@ def clamp_plan(plan: RunPlan, available: list[str]) -> RunPlan:
 
 
 async def coordinate(
-    client: GroqClient,
+    client: LLMClient,
     skeleton: RepoSkeleton,
     packs: ContextPacks,
     project_type: ProjectType,
