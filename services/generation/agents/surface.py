@@ -6,7 +6,7 @@ from doc_schema.agents import SurfaceDraft
 from doc_schema.models import ProjectType
 from skeleton_schema.models import RepoSkeleton
 
-from generation.groq_client import GroqClient
+from generation.llm import LLMClient
 from generation.jsonutil import extract_json
 from generation.templates import section_plan
 
@@ -24,7 +24,7 @@ Use only public_api and manifests. Do not invent symbols.
 
 
 async def run_surface(
-    client: GroqClient,
+    client: LLMClient,
     skeleton: RepoSkeleton,
     project_type: ProjectType,
 ) -> SurfaceDraft:

@@ -13,8 +13,8 @@ from api.jobs import store
 from api.jobs.paths import agents_dir, doc_path, job_dir, skeleton_path
 from doc_schema.models import ProjectType
 from estimator.estimate import estimate_job
-from estimator.pricing import DEFAULT_MODEL, get_model
-from generation.groq_client import GroqClient
+from estimator.pricing import DEFAULT_MODELS, get_model
+from generation.llm import LLMClient, LLMProvider
 from generation.context.packs import build_context_packs
 from generation.orchestrator import run_multi_agent
 from generation.summarize import summarize_all
@@ -25,6 +25,10 @@ from renderer.markdown_renderer import attach_search_index
 from skeleton_schema.models import RepoSkeleton
 
 _queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
+
+
+def _provider_label(provider: LLMProvider) -> str:
+    return "OpenRouter" if provider is LLMProvider.OPENROUTER else "Groq"
 
 
 def load_skeleton(job_id: str) -> RepoSkeleton:
@@ -86,17 +90,23 @@ def _analyze_job(job_id: str) -> None:
         skeleton.classifier_signals = signals
         skeleton_path(job_id).write_text(skeleton.model_dump_json(indent=2), encoding="utf-8")
         settings_row = store.get_settings(job["user_id"])
-        model = settings_row["default_model"] or DEFAULT_MODEL
         try:
-            get_model(model)
+            provider = LLMProvider(settings_row.get("llm_provider") or "groq")
+        except ValueError:
+            provider = LLMProvider.GROQ
+        default_field = "default_model" if provider is LLMProvider.GROQ else "openrouter_default_model"
+        model = settings_row.get(default_field) or DEFAULT_MODELS[provider]
+        try:
+            get_model(model, provider)
         except KeyError:
-            model = DEFAULT_MODEL
-        estimate = estimate_job(skeleton, model, multi_agent=settings.multi_agent)
+            model = DEFAULT_MODELS[provider]
+        estimate = estimate_job(skeleton, model, provider, multi_agent=settings.multi_agent)
         store.update_job(
             job_id,
             status="awaiting_confirmation",
             project_type=project_type.value,
             model=model,
+            llm_provider=provider.value,
             estimate=estimate,
             progress={
                 "stage": "awaiting_confirmation",
@@ -120,22 +130,28 @@ async def _generate_job(job_id: str) -> None:
     if not job:
         return
     settings_row = store.get_settings(job["user_id"])
-    if not settings_row.get("groq_key_encrypted"):
+    try:
+        provider = LLMProvider(job.get("llm_provider") or settings_row.get("llm_provider") or "groq")
+    except ValueError:
+        provider = LLMProvider.GROQ
+    key_field = f"{provider.value}_key_encrypted"
+    if not settings_row.get(key_field):
         store.update_job(
             job_id,
             status="awaiting_confirmation",
-            error="Add a Groq API key in Settings before generating.",
-            progress={"stage": "awaiting_confirmation", "message": "Groq API key required"},
+            error=f"Add an {_provider_label(provider)} API key in Settings before generating.",
+            progress={"stage": "awaiting_confirmation", "message": f"{_provider_label(provider)} API key required"},
         )
         return
 
-    api_key = decrypt_key(settings_row["groq_key_encrypted"])
-    model = job.get("model") or settings_row["default_model"] or DEFAULT_MODEL
+    api_key = decrypt_key(settings_row[key_field])
+    default_field = "default_model" if provider is LLMProvider.GROQ else "openrouter_default_model"
+    model = job.get("model") or settings_row[default_field] or DEFAULT_MODELS[provider]
     max_tokens = int(settings_row["max_tokens"] or settings.max_tokens_default)
     skeleton = load_skeleton(job_id)
     project_type = ProjectType(job.get("project_type") or "general")
     packs = build_context_packs(skeleton)
-    client = GroqClient(api_key=api_key, model=model, max_tokens_remaining=max_tokens)
+    client = LLMClient(provider, api_key=api_key, model=model, max_tokens_remaining=max_tokens)
 
     async def on_progress(message: str) -> None:
         store.update_job(

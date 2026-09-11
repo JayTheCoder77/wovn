@@ -5,7 +5,7 @@ import json
 from doc_schema.agents import OperationsDraft
 from skeleton_schema.models import RepoSkeleton
 
-from generation.groq_client import GroqClient
+from generation.llm import LLMClient
 from generation.jsonutil import extract_json
 
 SYSTEM = """You write an operations draft for install, run, and deploy.
@@ -20,7 +20,7 @@ Use Docker/compose/manifests only. Env values must be names, never secrets.
 """
 
 
-async def run_operations(client: GroqClient, skeleton: RepoSkeleton) -> OperationsDraft:
+async def run_operations(client: LLMClient, skeleton: RepoSkeleton) -> OperationsDraft:
     user = {
         "manifest_keys": list(skeleton.manifests.keys()),
         "manifest_summary": skeleton.manifest_summary,

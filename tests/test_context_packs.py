@@ -12,6 +12,7 @@ from estimator.token_counter import count_tokens
 from generation.context.packs import (
     MODULE_TOKEN_CAP,
     build_context_packs,
+    group_files,
     render_global_pack,
     render_module_pack,
 )
@@ -55,6 +56,21 @@ def test_module_pack_includes_provenance_and_snippet_ranges():
     assert "FILE:" in text or "FILE " in text
     assert "app.py:" in text
     assert any(f.snippets for pack in packs.modules for f in pack.files)
+
+
+def test_group_files_groups_root_and_folder_files_deterministically():
+    files = [
+        FileSkeleton(path="api/routes.py", language=LanguageName.python, loc=1),
+        FileSkeleton(path="main.py", language=LanguageName.python, loc=1),
+        FileSkeleton(path="api/models.py", language=LanguageName.python, loc=1),
+    ]
+
+    groups = group_files(files)
+
+    assert [(group.name, [file.path for file in group.files]) for group in groups] == [
+        (".", ["main.py"]),
+        ("api", ["api/routes.py", "api/models.py"]),
+    ]
 
 
 def test_over_budget_pack_trims_snippets_first():

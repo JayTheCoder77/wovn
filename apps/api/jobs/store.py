@@ -14,7 +14,8 @@ from api.auth.keys import FERNET_KEY_ID, encrypt_key
 from api.config import settings
 from api.db import SessionLocal
 from api.models import DocJob, GitHubToken, Repo, User, UserSettings
-from estimator.pricing import DEFAULT_MODEL
+from estimator.pricing import DEFAULT_MODELS, DEFAULT_MODEL
+from generation.llm import LLMProvider
 
 
 def utcnow() -> datetime:
@@ -54,8 +55,11 @@ def _settings_dict(row: UserSettings) -> dict[str, Any]:
     return {
         "user_id": row.user_id,
         "groq_key_encrypted": row.groq_key_encrypted,
+        "openrouter_key_encrypted": row.openrouter_key_encrypted,
         "key_id": row.key_id,
+        "llm_provider": row.llm_provider,
         "default_model": row.default_model,
+        "openrouter_default_model": row.openrouter_default_model,
         "max_tokens": row.max_tokens,
         "updated_at": _iso(row.updated_at),
     }
@@ -85,6 +89,7 @@ def _job_dict(job: DocJob) -> dict[str, Any]:
         "status": job.status,
         "error": job.error,
         "model": job.model,
+        "llm_provider": job.llm_provider,
         "project_type": job.project_type,
         "estimate": estimate,
         "progress": progress,
@@ -100,8 +105,11 @@ def _ensure_settings(session: Session, user_id: str) -> UserSettings:
         row = UserSettings(
             user_id=user_id,
             groq_key_encrypted=None,
+            openrouter_key_encrypted=None,
             key_id=FERNET_KEY_ID,
             default_model=DEFAULT_MODEL,
+            openrouter_default_model=DEFAULT_MODELS[LLMProvider.OPENROUTER],
+            llm_provider=LLMProvider.GROQ.value,
             max_tokens=settings.max_tokens_default,
             updated_at=utcnow(),
         )
@@ -164,7 +172,7 @@ def update_settings(user_id: str, **fields: Any) -> dict[str, Any]:
         row = _ensure_settings(session, user_id)
         for key, value in fields.items():
             setattr(row, key, value)
-        if "groq_key_encrypted" in fields and fields["groq_key_encrypted"]:
+        if any(fields.get(name) for name in ("groq_key_encrypted", "openrouter_key_encrypted")):
             row.key_id = FERNET_KEY_ID
         row.updated_at = utcnow()
         session.flush()
@@ -293,6 +301,7 @@ def create_job(job_id: str, user_id: str, repo_id: str, repo_url: str) -> dict[s
             status="queued",
             error=None,
             model=None,
+            llm_provider=None,
             project_type=None,
             estimate_json=None,
             progress_json=json.dumps({"stage": "queued", "message": "Queued"}),

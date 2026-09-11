@@ -2,14 +2,14 @@
 
 Generate a documentation website from a GitHub repository you can access.
 
-Wovn signs you in with GitHub, shallow-clones the repo (public or private), analyzes it with tree-sitter (Python, TypeScript/TSX, JavaScript/JSX, Go, Rust), estimates Groq cost, then — after you confirm — uses **your Groq API key** to write a searchable docs site. Cloned code is never executed.
+Wovn signs you in with GitHub, shallow-clones the repo (public or private), analyzes it with tree-sitter (Python, TypeScript/TSX, JavaScript/JSX, Go, Rust), estimates cost, then — after you confirm — uses **your Groq or OpenRouter API key** to write a searchable docs site. Cloned code is never executed.
 
 ## Requirements
 
 - Python 3.11+ (3.12 recommended)
 - [uv](https://docs.astral.sh/uv/)
 - Node 18+ and [pnpm](https://pnpm.io/)
-- A [Groq API key](https://console.groq.com/keys)
+- A [Groq API key](https://console.groq.com/keys) or [OpenRouter API key](https://openrouter.ai/settings/keys)
 - A GitHub OAuth App (steps below)
 
 ## Clone
@@ -54,7 +54,7 @@ WOVN_GITHUB_CLIENT_SECRET=your-oauth-client-secret
 WOVN_MULTI_AGENT=true
 ```
 
-Do not commit `.env`. Rotating `WOVN_SECRET_KEY` invalidates stored Groq keys and GitHub tokens.
+Do not commit `.env`. Rotating `WOVN_SECRET_KEY` invalidates stored Groq/OpenRouter keys and GitHub tokens.
 
 ## 3. API (port 8000)
 
@@ -84,9 +84,9 @@ Open **[http://localhost:3000](http://localhost:3000)** (not `127.0.0.1:3000`).
 ## 5. Use the app
 
 1. Sign in with GitHub.
-2. Open **Settings**, paste your Groq API key, save.
+2. Open **Settings**, select Groq or OpenRouter, paste that provider's API key, and save. Keys and default models are remembered independently for each provider.
 3. On the home page, paste `https://github.com/owner/repo` or pick a repo from the GitHub list.
-4. Wait for static analysis (no Groq tokens yet).
+4. Wait for static analysis (no provider tokens yet).
 5. Review the estimate, confirm generation.
 6. Open the docs site when the job completes.
 
@@ -97,7 +97,7 @@ source .venv/bin/activate
 pytest -q
 ```
 
-Analyze a local folder without Groq:
+Analyze a local folder without an LLM provider:
 
 ```bash
 wovn-analyze ./path/to/repo
@@ -116,4 +116,4 @@ wovn-analyze ./path/to/repo
 | GitHub callback 302, then `/auth/me` 401 | You mixed `localhost` and `127.0.0.1`. Align OAuth callback, `.env`, and the browser URL on `localhost`. |
 | `GitHub OAuth is not configured` | Set `WOVN_GITHUB_CLIENT_ID` and `WOVN_GITHUB_CLIENT_SECRET`, restart the API. |
 | Clone: repository not found | Re-sign in so a fresh `repo`-scoped token is stored; confirm you can open the GitHub URL while logged in. |
-| Confirm blocked / Groq errors | Add a Groq key in Settings; raise `max_tokens` if the estimate exceeds the cap. |
+| Confirm blocked / provider errors | Add the selected Groq or OpenRouter key in Settings; raise `max_tokens` if the estimate exceeds the cap. |

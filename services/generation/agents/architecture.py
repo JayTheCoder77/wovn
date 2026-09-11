@@ -6,7 +6,7 @@ from doc_schema.agents import ArchitectureDraft
 from skeleton_schema.models import RepoSkeleton
 
 from generation.context.packs import ContextPacks, render_global_pack
-from generation.groq_client import GroqClient
+from generation.llm import LLMClient
 from generation.jsonutil import extract_json
 
 SYSTEM = """You write an architecture draft from a global ContextPack and import graph.
@@ -22,7 +22,7 @@ Do not invent files. Cite pack provenance.
 
 
 async def run_architecture(
-    client: GroqClient,
+    client: LLMClient,
     skeleton: RepoSkeleton,
     packs: ContextPacks,
 ) -> ArchitectureDraft:

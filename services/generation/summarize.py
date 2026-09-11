@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from generation.context.packs import ModulePack, render_module_pack
-from generation.groq_client import GroqClient
+from generation.llm import LLMClient
 from generation.jsonutil import extract_json
 
 SYSTEM = """You summarize source modules from a static-analysis ContextPack, not whole files.
@@ -18,7 +18,7 @@ Every claim should cite a path and line from the pack.
 """
 
 
-async def summarize_group(client: GroqClient, group: ModulePack) -> dict:
+async def summarize_group(client: LLMClient, group: ModulePack) -> dict:
     body = render_module_pack(group)
     user = f"Module: {group.name}\n\n{body}"
     text = await client.complete(system=SYSTEM, user=user, json_mode=True, max_completion_tokens=900)
@@ -30,7 +30,7 @@ async def summarize_group(client: GroqClient, group: ModulePack) -> dict:
 
 
 async def summarize_all(
-    client: GroqClient,
+    client: LLMClient,
     groups: list[ModulePack],
     on_progress=None,
     concurrency: int = 4,

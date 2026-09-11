@@ -21,7 +21,7 @@ from generation.agents.critic import run_critic
 from generation.agents.operations import run_operations
 from generation.agents.surface import run_surface
 from generation.context.packs import ContextPacks, ModulePack
-from generation.groq_client import GroqClient
+from generation.llm import LLMClient
 from generation.summarize import summarize_all
 from generation.synthesize import synthesize
 
@@ -29,7 +29,7 @@ Progress = Callable[[str], Awaitable[None]] | None
 
 
 async def run_multi_agent(
-    client: GroqClient,
+    client: LLMClient,
     skeleton: RepoSkeleton,
     packs: ContextPacks,
     project_type: ProjectType,

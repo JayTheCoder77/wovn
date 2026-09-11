@@ -5,12 +5,14 @@ from typing import Any
 
 from skeleton_schema.models import FileSkeleton, PublicApiEntry, RepoSkeleton, Snippet, SnippetReason
 
+from estimator.token_counter import count_tokens
 from renderer.diagram_gen import mermaid_from_import_graph
 
 GLOBAL_TOKEN_CAP = 2000
 MODULE_TOKEN_CAP = 2500
 MAX_GRAPH_EDGES = 40
 MAX_PUBLIC_API = 80
+MAX_SYMBOLS_CONTEXT = 80
 MAX_TREE = 120
 SNIPPET_DROP_ORDER = (
     SnippetReason.module_doc,
@@ -46,6 +48,22 @@ class ModulePack:
 class ContextPacks:
     global_pack: GlobalPack
     modules: list[ModulePack]
+
+
+@dataclass
+class FileGroup:
+    name: str
+    files: list[FileSkeleton]
+
+
+def group_files(files: list[FileSkeleton]) -> list[FileGroup]:
+    """Group source files by their containing folder for module-level prompts."""
+    grouped: dict[str, list[FileSkeleton]] = {}
+    for file in files:
+        parent = file.path.rpartition("/")[0]
+        name = parent or "."
+        grouped.setdefault(name, []).append(file)
+    return [FileGroup(name=name, files=grouped[name]) for name in sorted(grouped)]
 
 
 def build_context_packs(

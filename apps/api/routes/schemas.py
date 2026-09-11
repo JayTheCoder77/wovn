@@ -9,9 +9,12 @@ class SubmitJobRequest(BaseModel):
 
 class ConfirmJobRequest(BaseModel):
     model: str | None = None
+    provider: str | None = None
 
 
 class SettingsUpdate(BaseModel):
     groq_api_key: str | None = None
+    openrouter_api_key: str | None = None
+    llm_provider: str | None = None
     default_model: str | None = None
     max_tokens: int | None = Field(default=None, ge=1000, le=2_000_000)
