@@ -1,11 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { api, GroqModel, Settings } from "@/lib/api";
+import { api, LLMModel, LLMProvider, Settings } from "@/lib/api";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [models, setModels] = useState<GroqModel[]>([]);
+  const [models, setModels] = useState<LLMModel[]>([]);
+  const [provider, setProvider] = useState<LLMProvider>("groq");
   const [key, setKey] = useState("");
   const [model, setModel] = useState("");
   const [cap, setCap] = useState(200000);
@@ -13,9 +14,11 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([api.settings(), api.models()])
-      .then(([s, m]) => {
+    api.settings()
+      .then(async (s) => {
         setSettings(s);
+        setProvider(s.llm_provider);
+        const m = await api.models(s.llm_provider);
         setModels(m);
         setModel(s.default_model);
         setCap(s.max_tokens);
@@ -23,15 +26,36 @@ export default function SettingsPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Could not load settings"));
   }, []);
 
+  async function changeProvider(next: LLMProvider) {
+    setProvider(next);
+    setKey("");
+    setError(null);
+    try {
+      const [nextSettings, nextModels] = await Promise.all([
+        api.saveSettings({ llm_provider: next }),
+        api.models(next),
+      ]);
+      setSettings(nextSettings);
+      setModels(nextModels);
+      setModel(nextSettings.default_model);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not change provider");
+    }
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     try {
-      const payload: { default_model: string; max_tokens: number; groq_api_key?: string } = {
+      const payload: { llm_provider: LLMProvider; default_model: string; max_tokens: number; groq_api_key?: string; openrouter_api_key?: string } = {
+        llm_provider: provider,
         default_model: model,
         max_tokens: cap,
       };
-      if (key.trim()) payload.groq_api_key = key.trim();
+      if (key.trim()) {
+        if (provider === "groq") payload.groq_api_key = key.trim();
+        else payload.openrouter_api_key = key.trim();
+      }
       const next = await api.saveSettings(payload);
       setSettings(next);
       setKey("");
@@ -45,22 +69,32 @@ export default function SettingsPage() {
     <main className="shell">
       <h1>Settings</h1>
       <p className="lede">
-        Your Groq key is encrypted at rest (key id fernet-v1) and used only for confirmed generation jobs. Rotating{" "}
-        <span className="mono">WOVN_SECRET_KEY</span> invalidates stored Groq and GitHub secrets.
+        Your provider keys are encrypted at rest (key id fernet-v1) and used only for confirmed generation jobs. Rotating{" "}
+        <span className="mono">WOVN_SECRET_KEY</span> invalidates stored provider and GitHub secrets.
       </p>
       <form className="card" onSubmit={onSubmit}>
         <p className="muted">
-          Key status: {settings?.has_groq_key ? "saved" : "not set"}
+          Key status: {(provider === "groq" ? settings?.has_groq_key : settings?.has_openrouter_key) ? "saved" : "not set"}
         </p>
         <p>
           <label>
-            Groq API key
+            Provider
+            <br />
+            <select value={provider} onChange={(e) => changeProvider(e.target.value as LLMProvider)} style={{ marginTop: 8, width: "100%" }}>
+              <option value="groq">Groq</option>
+              <option value="openrouter">OpenRouter</option>
+            </select>
+          </label>
+        </p>
+        <p>
+          <label>
+            {provider === "groq" ? "Groq" : "OpenRouter"} API key
             <br />
             <input
               type="password"
               value={key}
               onChange={(e) => setKey(e.target.value)}
-              placeholder={settings?.has_groq_key ? "•••••••• (leave blank to keep)" : "gsk_…"}
+              placeholder={(provider === "groq" ? settings?.has_groq_key : settings?.has_openrouter_key) ? "•••••••• (leave blank to keep)" : provider === "groq" ? "gsk_…" : "sk-or-…"}
               style={{ width: "100%", marginTop: 8 }}
             />
           </label>

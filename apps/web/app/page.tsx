@@ -95,11 +95,11 @@ export default function HomePage() {
     return (
       <main className="landing">
         <section className="hero">
-          <p className="kicker">Static analysis · BYOK Groq · private repos</p>
+          <p className="kicker">Static analysis · BYOK Groq or OpenRouter · private repos</p>
           <h1>Turn a GitHub repo into a docs site.</h1>
           <p className="lede">
             Wovn clones the repository in isolation, reads structure with tree-sitter, estimates cost on your Groq
-            key, then writes overview, getting started, and architecture — without executing the code.
+            provider key, then writes overview, getting started, and architecture — without executing the code.
           </p>
           <p className="row">
             <a className="btn" href={githubLoginUrl()}>
@@ -116,7 +116,7 @@ export default function HomePage() {
           <article className="step-card">
             <p className="mono accent">02</p>
             <h3>Estimate</h3>
-            <p>See token counts and dollar cost before any Groq call. Confirm only when the budget looks right.</p>
+            <p>See token counts and dollar cost before any provider call. Confirm only when the budget looks right.</p>
           </article>
           <article className="step-card">
             <p className="mono accent">03</p>
@@ -135,7 +135,7 @@ export default function HomePage() {
         <h1>Generate docs from a repo.</h1>
         <p className="lede">
           Paste a GitHub URL or pick from your account. Wovn analyzes it statically, shows a cost estimate, then
-          writes the docs site with your Groq key.
+          writes the docs site with your selected provider key.
         </p>
       </section>
 

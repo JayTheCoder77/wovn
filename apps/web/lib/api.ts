@@ -1,6 +1,8 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export type GroqModel = {
+export type LLMProvider = "groq" | "openrouter";
+
+export type LLMModel = {
   id: string;
   label: string;
   input_per_million: number;
@@ -16,9 +18,11 @@ export type Job = {
   status: string;
   error: string | null;
   model: string | null;
+  llm_provider: LLMProvider | null;
   project_type: string | null;
   estimate: {
     model: string;
+    provider: LLMProvider;
     file_count: number;
     module_count: number;
     summarization_calls: number;
@@ -39,6 +43,8 @@ export type Job = {
 
 export type Settings = {
   has_groq_key: boolean;
+  has_openrouter_key: boolean;
+  llm_provider: LLMProvider;
   default_model: string;
   max_tokens: number;
 };
@@ -137,9 +143,9 @@ export const api = {
   me: () => request<AuthUser>("/auth/me"),
   logout: () => request<void>("/auth/logout", { method: "POST" }),
   settings: () => request<Settings>("/settings"),
-  saveSettings: (payload: Partial<{ groq_api_key: string; default_model: string; max_tokens: number }>) =>
+  saveSettings: (payload: Partial<{ groq_api_key: string; openrouter_api_key: string; llm_provider: LLMProvider; default_model: string; max_tokens: number }>) =>
     request<Settings>("/settings", { method: "PUT", body: JSON.stringify(payload) }),
-  models: () => request<GroqModel[]>("/models"),
+  models: (provider: LLMProvider) => request<LLMModel[]>(`/models?provider=${provider}`),
   repos: () => request<Repo[]>("/repos"),
   addRepo: (url: string) => request<Repo>("/repos", { method: "POST", body: JSON.stringify({ url }) }),
   githubRepos: () => request<GithubRepoOption[]>("/github/repos"),
@@ -147,8 +153,8 @@ export const api = {
   jobs: () => request<Job[]>("/jobs"),
   job: (id: string) => request<Job>(`/jobs/${id}`),
   submit: (repo_url: string) => request<Job>("/jobs", { method: "POST", body: JSON.stringify({ repo_url }) }),
-  confirm: (id: string, model?: string) =>
-    request<Job>(`/jobs/${id}/confirm`, { method: "POST", body: JSON.stringify({ model: model || null }) }),
+  confirm: (id: string, model: string | undefined, provider: LLMProvider) =>
+    request<Job>(`/jobs/${id}/confirm`, { method: "POST", body: JSON.stringify({ model: model || null, provider }) }),
   doc: (id: string) => request<GeneratedDoc>(`/jobs/${id}/doc`),
 };
 

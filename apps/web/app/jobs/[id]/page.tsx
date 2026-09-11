@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { api, GroqModel, Job, Settings } from "@/lib/api";
+import { api, LLMModel, Job, Settings } from "@/lib/api";
 
 export default function JobPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [job, setJob] = useState<Job | null>(null);
-  const [models, setModels] = useState<GroqModel[]>([]);
+  const [models, setModels] = useState<LLMModel[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [model, setModel] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -27,10 +27,10 @@ export default function JobPage() {
     }
     tick();
     const timer = setInterval(tick, 800);
-    api.models().then((rows) => {
-      setModels(rows);
-    });
-    api.settings().then(setSettings);
+    api.settings().then((current) => {
+      setSettings(current);
+      return api.models(current.llm_provider);
+    }).then(setModels);
     return () => {
       alive = false;
       clearInterval(timer);
@@ -41,11 +41,18 @@ export default function JobPage() {
     if (job?.model && !model) setModel(job.model);
   }, [job, model]);
 
+  useEffect(() => {
+    if (settings && job?.llm_provider && job.llm_provider !== settings.llm_provider && model === job.model) {
+      setModel(settings.default_model);
+    }
+  }, [job, model, settings]);
+
   async function confirm() {
     setError(null);
     setConfirming(true);
     try {
-      const next = await api.confirm(id, model);
+      if (!settings) return;
+      const next = await api.confirm(id, model, settings.llm_provider);
       setJob(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Confirm failed");
@@ -93,17 +100,17 @@ export default function JobPage() {
                   </option>
                 ))}
               </select>
-              <button type="button" onClick={confirm} disabled={confirming || !settings?.has_groq_key}>
+              <button type="button" onClick={confirm} disabled={confirming || !(settings?.llm_provider === "groq" ? settings.has_groq_key : settings?.has_openrouter_key)}>
                 {confirming ? "Starting…" : "Generate docs"}
               </button>
               <Link className="btn secondary" href="/settings">
-                {settings?.has_groq_key ? "Settings" : "Add Groq key"}
+                {(settings?.llm_provider === "groq" ? settings.has_groq_key : settings?.has_openrouter_key) ? "Settings" : `Add ${settings?.llm_provider === "openrouter" ? "OpenRouter" : "Groq"} key`}
               </Link>
             </div>
           ) : null}
         </div>
       ) : (
-        <div className="card muted">Free static pass in progress — no Groq tokens used yet.</div>
+        <div className="card muted">Free static pass in progress — no provider tokens used yet.</div>
       )}
 
       {job.status === "completed" ? (
