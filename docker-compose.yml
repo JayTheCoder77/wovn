@@ -9,6 +9,7 @@ services:
       WOVN_SECRET_KEY: change-me
       WOVN_DATA_DIR: /data
       WOVN_CORS_ORIGINS: http://localhost:3000
+      WOVN_DATABASE_URL: sqlite:////data/wovn.db
     volumes:
       - wovn-data:/data
 

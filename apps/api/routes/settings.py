@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from api.auth.deps import get_current_user
 from api.auth.keys import encrypt_key
 from api.jobs import store
 from api.routes.schemas import SettingsUpdate
@@ -16,8 +17,8 @@ async def models():
 
 
 @router.get("/settings")
-async def get_settings():
-    row = store.get_settings()
+async def get_settings(user: dict = Depends(get_current_user)):
+    row = store.get_settings(user["id"])
     return {
         "has_groq_key": bool(row.get("groq_key_encrypted")),
         "default_model": row.get("default_model") or DEFAULT_MODEL,
@@ -26,7 +27,7 @@ async def get_settings():
 
 
 @router.put("/settings")
-async def put_settings(payload: SettingsUpdate):
+async def put_settings(payload: SettingsUpdate, user: dict = Depends(get_current_user)):
     fields: dict = {}
     if payload.groq_api_key is not None:
         key = payload.groq_api_key.strip()
@@ -43,5 +44,5 @@ async def put_settings(payload: SettingsUpdate):
     if payload.max_tokens is not None:
         fields["max_tokens"] = payload.max_tokens
     if fields:
-        store.update_settings(**fields)
-    return await get_settings()
+        store.update_settings(user["id"], **fields)
+    return await get_settings(user)

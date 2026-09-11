@@ -1,75 +1,72 @@
 from __future__ import annotations
 
-import json
 import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import sessionmaker
 
 from api.config import settings
 
+_engine: Engine | None = None
+_engine_url: str | None = None
+SessionLocal = sessionmaker(autoflush=False, autocommit=False, expire_on_commit=False)
 
-def utcnow() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
-
-def db_path() -> Path:
+def database_url() -> str:
+    if settings.database_url:
+        return settings.database_url
     settings.data_dir.mkdir(parents=True, exist_ok=True)
-    return settings.data_dir / "wovn.db"
+    path = (settings.data_dir / "wovn.db").resolve()
+    return f"sqlite:///{path}"
 
 
-def connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path())
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA foreign_keys=ON;")
-    return conn
+def _connect_args(url: str) -> dict:
+    if url.startswith("sqlite"):
+        return {"check_same_thread": False}
+    return {}
+
+
+@event.listens_for(Engine, "connect")
+def _set_sqlite_pragma(dbapi_connection, _connection_record) -> None:
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
+def get_engine() -> Engine:
+    global _engine, _engine_url
+    url = database_url()
+    if _engine is None or _engine_url != url:
+        if _engine is not None:
+            _engine.dispose()
+        _engine = create_engine(url, future=True, connect_args=_connect_args(url))
+        _engine_url = url
+        SessionLocal.configure(bind=_engine)
+    return _engine
+
+
+def reset_engine() -> None:
+    global _engine, _engine_url
+    if _engine is not None:
+        _engine.dispose()
+    _engine = None
+    _engine_url = None
+
+
+def alembic_config() -> Config:
+    migrations = Path(__file__).resolve().parent / "migrations"
+    cfg = Config()
+    cfg.set_main_option("script_location", str(migrations))
+    cfg.set_main_option("sqlalchemy.url", database_url())
+    return cfg
 
 
 def init_db() -> None:
-    with connect() as conn:
-        conn.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS settings (
-                id INTEGER PRIMARY KEY CHECK (id = 1),
-                groq_key_encrypted TEXT,
-                default_model TEXT NOT NULL,
-                max_tokens INTEGER NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS jobs (
-                id TEXT PRIMARY KEY,
-                repo_url TEXT NOT NULL,
-                status TEXT NOT NULL,
-                error TEXT,
-                model TEXT,
-                project_type TEXT,
-                estimate_json TEXT,
-                progress_json TEXT,
-                tokens_used INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-            """
-        )
-        row = conn.execute("SELECT id FROM settings WHERE id = 1").fetchone()
-        if row is None:
-            conn.execute(
-                """
-                INSERT INTO settings (id, groq_key_encrypted, default_model, max_tokens, updated_at)
-                VALUES (1, NULL, 'openai/gpt-oss-20b', ?, ?)
-                """,
-                (settings.max_tokens_default, utcnow()),
-            )
-
-
-def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
-    if row is None:
-        return None
-    data = dict(row)
-    for key in ("estimate_json", "progress_json"):
-        if key in data and data[key]:
-            data[key.replace("_json", "")] = json.loads(data[key])
-        elif key in data:
-            data[key.replace("_json", "")] = None
-    return data
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    get_engine()
+    command.upgrade(alembic_config(), "head")

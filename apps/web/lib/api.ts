@@ -1,3 +1,5 @@
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+
 export type GroqModel = {
   id: string;
   label: string;
@@ -8,6 +10,8 @@ export type GroqModel = {
 
 export type Job = {
   id: string;
+  user_id: string;
+  repo_id: string;
   repo_url: string;
   status: string;
   error: string | null;
@@ -39,6 +43,31 @@ export type Settings = {
   max_tokens: number;
 };
 
+export type AuthUser = {
+  id: string;
+  github_id: number;
+  email: string | null;
+  display_name: string;
+};
+
+export type Repo = {
+  id: string;
+  user_id: string;
+  provider: string;
+  full_name: string;
+  default_url: string;
+  default_branch: string | null;
+  visibility: string;
+  last_analyzed_at: string | null;
+};
+
+export type GithubRepoOption = {
+  full_name: string;
+  html_url: string;
+  visibility: string;
+  default_branch: string | null;
+};
+
 export type GeneratedDoc = {
   project_type: string;
   title: string;
@@ -56,17 +85,40 @@ export type GeneratedDoc = {
   search_index: { id: string; title: string; text: string }[];
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+function redirectIfProtected(path: string) {
+  if (typeof window === "undefined") return;
+  if (path.startsWith("/auth/")) return;
+  const current = window.location.pathname;
+  if (current.startsWith("/settings") || current.startsWith("/jobs") || current.startsWith("/docs")) {
+    window.location.href = "/";
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
     cache: "no-store",
   });
+  if (response.status === 401) {
+    redirectIfProtected(path);
+    throw new ApiError(401, "Sign in required");
+  }
+  if (response.status === 204) {
+    return undefined as T;
+  }
   if (!response.ok) {
     let detail = response.statusText;
     try {
@@ -75,17 +127,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       detail = await response.text();
     }
-    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    throw new ApiError(response.status, typeof detail === "string" ? detail : JSON.stringify(detail));
   }
   return response.json() as Promise<T>;
 }
 
 export const api = {
   health: () => request<{ ok: boolean }>("/health"),
+  me: () => request<AuthUser>("/auth/me"),
+  logout: () => request<void>("/auth/logout", { method: "POST" }),
   settings: () => request<Settings>("/settings"),
   saveSettings: (payload: Partial<{ groq_api_key: string; default_model: string; max_tokens: number }>) =>
     request<Settings>("/settings", { method: "PUT", body: JSON.stringify(payload) }),
   models: () => request<GroqModel[]>("/models"),
+  repos: () => request<Repo[]>("/repos"),
+  addRepo: (url: string) => request<Repo>("/repos", { method: "POST", body: JSON.stringify({ url }) }),
+  githubRepos: () => request<GithubRepoOption[]>("/github/repos"),
+  createRepoJob: (repoId: string) => request<Job>(`/repos/${repoId}/jobs`, { method: "POST" }),
   jobs: () => request<Job[]>("/jobs"),
   job: (id: string) => request<Job>(`/jobs/${id}`),
   submit: (repo_url: string) => request<Job>("/jobs", { method: "POST", body: JSON.stringify({ repo_url }) }),
@@ -93,3 +151,7 @@ export const api = {
     request<Job>(`/jobs/${id}/confirm`, { method: "POST", body: JSON.stringify({ model: model || null }) }),
   doc: (id: string) => request<GeneratedDoc>(`/jobs/${id}/doc`),
 };
+
+export function githubLoginUrl() {
+  return `${API_BASE}/auth/github/login`;
+}

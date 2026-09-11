@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 import shutil
 import uuid
-from pathlib import Path
 
 from analysis.classifier import classify
 from analysis.skeleton_builder import build_skeleton
+from api.auth.github_api import GitHubAuthError, valid_access_token
 from api.auth.keys import decrypt_key
 from api.config import settings
 from api.jobs import store
+from api.jobs.paths import doc_path, job_dir, skeleton_path
 from doc_schema.models import ProjectType
 from estimator.estimate import estimate_job
 from estimator.pricing import DEFAULT_MODEL, get_model
@@ -23,20 +24,6 @@ from renderer.markdown_renderer import attach_search_index
 from skeleton_schema.models import RepoSkeleton
 
 _queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
-
-
-def job_dir(job_id: str) -> Path:
-    path = settings.data_dir / "jobs" / job_id
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def skeleton_path(job_id: str) -> Path:
-    return job_dir(job_id) / "skeleton.json"
-
-
-def doc_path(job_id: str) -> Path:
-    return job_dir(job_id) / "doc.json"
 
 
 def load_skeleton(job_id: str) -> RepoSkeleton:
@@ -74,6 +61,7 @@ def _analyze_job(job_id: str) -> None:
     job = store.get_job(job_id)
     if not job:
         return
+    job_dir(job_id)
     clone_dir = settings.data_dir / "clones" / job_id
     store.update_job(
         job_id,
@@ -81,7 +69,11 @@ def _analyze_job(job_id: str) -> None:
         progress={"stage": "cloning", "message": "Shallow-cloning repository"},
     )
     try:
-        parsed = clone_repo(job["repo_url"], clone_dir)
+        try:
+            access_token = valid_access_token(job["user_id"])
+        except GitHubAuthError as exc:
+            raise CloneError(str(exc)) from exc
+        parsed = clone_repo(job["repo_url"], clone_dir, access_token=access_token)
         store.update_job(
             job_id,
             progress={"stage": "analyzing", "message": "Building static skeleton"},
@@ -92,7 +84,7 @@ def _analyze_job(job_id: str) -> None:
         project_type, signals = classify(skeleton)
         skeleton.classifier_signals = signals
         skeleton_path(job_id).write_text(skeleton.model_dump_json(indent=2), encoding="utf-8")
-        settings_row = store.get_settings()
+        settings_row = store.get_settings(job["user_id"])
         model = settings_row["default_model"] or DEFAULT_MODEL
         try:
             get_model(model)
@@ -110,6 +102,7 @@ def _analyze_job(job_id: str) -> None:
                 "message": "Static analysis complete. Confirm to generate docs.",
             },
         )
+        store.touch_repo_analyzed(job["repo_id"])
     except CloneError as exc:
         store.update_job(
             job_id,
@@ -125,7 +118,7 @@ async def _generate_job(job_id: str) -> None:
     job = store.get_job(job_id)
     if not job:
         return
-    settings_row = store.get_settings()
+    settings_row = store.get_settings(job["user_id"])
     if not settings_row.get("groq_key_encrypted"):
         store.update_job(
             job_id,
