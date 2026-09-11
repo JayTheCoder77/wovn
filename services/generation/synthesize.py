@@ -5,11 +5,12 @@ from typing import Any
 from doc_schema.models import DocSection, GeneratedDoc, ProjectType, StructureEntry
 from skeleton_schema.models import RepoSkeleton
 
+from generation.context.packs import ContextPacks, render_global_pack
 from generation.groq_client import GroqClient
 from generation.jsonutil import extract_json
 from generation.templates import section_plan
 
-SYSTEM = """You write structured documentation from a repo skeleton and module summaries.
+SYSTEM = """You write structured documentation from a global ContextPack and module summaries.
 Return a JSON object with:
 {
   "title": string,
@@ -21,7 +22,7 @@ Return a JSON object with:
   ]
 }
 Rules:
-- Only use information present in the skeleton/summaries.
+- Only use information present in the global pack and summaries.
 - Overview must mention detected languages/stack.
 - For architecture sections, diagram should be a mermaid flowchart if relationships are known, else null.
 - getting_started should derive install commands from manifests when present.
@@ -84,8 +85,10 @@ async def synthesize(
     skeleton: RepoSkeleton,
     project_type: ProjectType,
     summaries: list[dict[str, Any]],
+    packs: ContextPacks | None = None,
 ) -> GeneratedDoc:
     plan = section_plan(project_type)
+    global_pack = render_global_pack(packs.global_pack) if packs else ""
     user = {
         "repo": skeleton.root_name,
         "repo_url": skeleton.repo_url,
@@ -93,8 +96,7 @@ async def synthesize(
         "required_section_types": plan,
         "languages": [lang.value for lang in skeleton.languages],
         "entry_points": skeleton.entry_points,
-        "tree": skeleton.tree[:120],
-        "manifest_keys": list(skeleton.manifests.keys()),
+        "global_pack": global_pack,
         "summaries": summaries,
         "signals": skeleton.classifier_signals,
     }

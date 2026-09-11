@@ -1,0 +1,7 @@
+[project]
+name = "demo"
+version = "0.1.0"
+dependencies = ["fastapi"]
+
+[project.scripts]
+demo = "app:health"
