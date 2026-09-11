@@ -15,7 +15,7 @@ from doc_schema.models import ProjectType
 from estimator.estimate import estimate_job
 from estimator.pricing import DEFAULT_MODEL, get_model
 from generation.groq_client import GroqClient
-from generation.modules import group_files
+from generation.context.packs import build_context_packs
 from generation.summarize import summarize_all
 from generation.synthesize import synthesize
 from ingest.clone import CloneError, clone_repo
@@ -133,7 +133,7 @@ async def _generate_job(job_id: str) -> None:
     max_tokens = int(settings_row["max_tokens"] or settings.max_tokens_default)
     skeleton = load_skeleton(job_id)
     project_type = ProjectType(job.get("project_type") or "general")
-    groups = group_files(skeleton.files)
+    packs = build_context_packs(skeleton)
     client = GroqClient(api_key=api_key, model=model, max_tokens_remaining=max_tokens)
 
     async def on_progress(message: str) -> None:
@@ -153,9 +153,9 @@ async def _generate_job(job_id: str) -> None:
         error=None,
         progress={"stage": "generating", "message": "Starting summarization"},
     )
-    summaries = await summarize_all(client, groups, on_progress=on_progress)
+    summaries = await summarize_all(client, packs.modules, on_progress=on_progress)
     await on_progress("Synthesizing documentation")
-    doc = await synthesize(client, skeleton, project_type, summaries)
+    doc = await synthesize(client, skeleton, project_type, summaries, packs=packs)
     mermaid = mermaid_from_import_graph(skeleton.import_graph)
     doc = ensure_architecture_diagram(doc, mermaid)
     doc = attach_search_index(doc)

@@ -6,7 +6,7 @@ from skeleton_schema.models import RepoSkeleton
 
 from estimator.pricing import estimate_cost_usd
 from estimator.token_counter import count_tokens
-from generation.modules import file_context, group_files
+from generation.context.packs import build_context_packs, render_global_pack, render_module_pack
 
 PROMPT_OVERHEAD_TOKENS = 700
 SUMMARY_OUTPUT_TOKENS = 550
@@ -15,17 +15,19 @@ SYNTHESIS_OVERHEAD_TOKENS = 900
 
 
 def estimate_job(skeleton: RepoSkeleton, model_id: str) -> dict[str, Any]:
-    groups = group_files(skeleton.files)
+    packs = build_context_packs(skeleton)
+    pack_input_tokens = count_tokens(render_global_pack(packs.global_pack))
     summarization_input = 0
-    for group in groups:
-        body = "\n".join(file_context(f) for f in group.files)
-        summarization_input += count_tokens(body) + PROMPT_OVERHEAD_TOKENS
+    for module in packs.modules:
+        body_tokens = count_tokens(render_module_pack(module))
+        pack_input_tokens += body_tokens
+        summarization_input += body_tokens + PROMPT_OVERHEAD_TOKENS
 
-    summarization_output = len(groups) * SUMMARY_OUTPUT_TOKENS
+    summarization_output = len(packs.modules) * SUMMARY_OUTPUT_TOKENS
     synthesis_input = (
         SYNTHESIS_OVERHEAD_TOKENS
-        + (len(groups) * SUMMARY_OUTPUT_TOKENS)
-        + count_tokens("\n".join(skeleton.tree[:200]))
+        + summarization_output
+        + count_tokens(render_global_pack(packs.global_pack))
     )
     synthesis_output = SYNTHESIS_OUTPUT_TOKENS
 
@@ -35,9 +37,11 @@ def estimate_job(skeleton: RepoSkeleton, model_id: str) -> dict[str, Any]:
     return {
         "model": model_id,
         "file_count": skeleton.file_count,
-        "module_count": len(groups),
-        "summarization_calls": len(groups),
+        "module_count": len(packs.modules),
+        "summarization_calls": len(packs.modules),
         "synthesis_calls": 1,
+        "pack_input_tokens": pack_input_tokens,
+        "trimmed_packs": int(packs.global_pack.trimmed) + sum(1 for m in packs.modules if m.trimmed),
         "estimated_input_tokens": input_tokens,
         "estimated_output_tokens": output_tokens,
         "estimated_cost_usd": cost,

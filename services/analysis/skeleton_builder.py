@@ -10,10 +10,12 @@ from skeleton_schema.models import FileSkeleton, LanguageName, RepoSkeleton
 
 from ingest.sandbox.limits import MAX_FILE_BYTES, MAX_FILES
 
+from analysis.enrich import enrich_skeleton
 from analysis.parsers.go import parse_go
 from analysis.parsers.javascript import parse_javascript, parse_tsx, parse_typescript
 from analysis.parsers.python import parse_python
 from analysis.parsers.rust import parse_rust
+from generation.context.snippets import extract_snippets
 
 SKIP_DIRS = {
     ".git",
@@ -173,6 +175,7 @@ def build_skeleton(root: Path, repo_url: str, root_name: str) -> RepoSkeleton:
             parsed = parse(rel, source)
         except Exception:
             continue
+        parsed.snippets = extract_snippets(rel, source, parsed)
         files.append(parsed)
         languages.add(parsed.language)
 
@@ -191,7 +194,7 @@ def build_skeleton(root: Path, repo_url: str, root_name: str) -> RepoSkeleton:
     entry_points = [f.path for f in files if f.is_entry_point]
     manifests = collect_manifests(root)
 
-    return RepoSkeleton(
+    skeleton = RepoSkeleton(
         repo_url=repo_url,
         root_name=root_name,
         languages=sorted(languages, key=lambda x: x.value),
@@ -203,3 +206,4 @@ def build_skeleton(root: Path, repo_url: str, root_name: str) -> RepoSkeleton:
         entry_points=entry_points,
         manifests=manifests,
     )
+    return enrich_skeleton(skeleton)
